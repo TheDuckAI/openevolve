@@ -200,154 +200,155 @@ class OpenEvolve:
                 f"Skipping initial program addition (resuming from iteration {start_iteration} with {len(self.database.programs)} existing programs)"
             )
 
-        # Main evolution loop
+        # Main evolution loop setup
         total_iterations = start_iteration + max_iterations
 
         logger.info(
             f"Starting evolution from iteration {start_iteration} for {max_iterations} iterations (total: {total_iterations})"
         )
 
-        # Island-based evolution variables
-        programs_per_island = max(
-            1, max_iterations // (self.config.database.num_islands * 10)
-        )  # Dynamic allocation
-        current_island_counter = 0
-
         logger.info(f"Using island-based evolution with {self.config.database.num_islands} islands")
         self.database.log_island_status()
 
-        for i in range(start_iteration, total_iterations):
-            iteration_start = time.time()
+        # Locks for shared state
+        db_lock = asyncio.Lock()
+        counter_lock = asyncio.Lock()
+        stop_event = asyncio.Event()
 
-            # Manage island evolution - switch islands periodically
-            if i > start_iteration and current_island_counter >= programs_per_island:
-                self.database.next_island()
-                current_island_counter = 0
-                logger.debug(f"Switched to island {self.database.current_island}")
+        iteration_counter = start_iteration
 
-            current_island_counter += 1
+        async def get_iteration() -> Optional[int]:
+            nonlocal iteration_counter
+            async with counter_lock:
+                if iteration_counter >= total_iterations or stop_event.is_set():
+                    return None
+                current = iteration_counter
+                iteration_counter += 1
+                return current
 
-            # Sample parent and inspirations from current island
-            parent, inspirations = self.database.sample()
+        async def island_worker(island_idx: int) -> None:
+            while True:
+                i = await get_iteration()
+                if i is None:
+                    break
 
-            # Get artifacts for the parent program if available
-            parent_artifacts = self.database.get_artifacts(parent.id)
+                iteration_start = time.time()
 
-            # Build prompt
-            prompt = self.prompt_sampler.build_prompt(
-                current_program=parent.code,
-                parent_program=parent.code,  # We don't have the parent's code, use the same
-                program_metrics=parent.metrics,
-                previous_programs=[p.to_dict() for p in self.database.get_top_programs(3)],
-                top_programs=[p.to_dict() for p in inspirations],
-                language=self.language,
-                evolution_round=i,
-                allow_full_rewrite=self.config.allow_full_rewrites,
-                program_artifacts=parent_artifacts if parent_artifacts else None,
-            )
+                # Sample parent and inspirations for this island
+                async with db_lock:
+                    self.database.set_current_island(island_idx)
+                    parent, inspirations = self.database.sample()
+                    parent_artifacts = self.database.get_artifacts(parent.id)
 
-            # Generate code modification
-            try:
-                llm_response = await self.llm_ensemble.generate_with_context(
-                    system_message=prompt["system"],
-                    messages=[{"role": "user", "content": prompt["user"]}],
+                # Build prompt
+                prompt = self.prompt_sampler.build_prompt(
+                    current_program=parent.code,
+                    parent_program=parent.code,  # We don't have the parent's code, use the same
+                    program_metrics=parent.metrics,
+                    previous_programs=[p.to_dict() for p in self.database.get_top_programs(3)],
+                    top_programs=[p.to_dict() for p in inspirations],
+                    language=self.language,
+                    evolution_round=i,
+                    allow_full_rewrite=self.config.allow_full_rewrites,
+                    program_artifacts=parent_artifacts if parent_artifacts else None,
                 )
 
-                # Parse the response
-                if self.config.diff_based_evolution:
-                    diff_blocks = extract_diffs(llm_response)
-
-                    if not diff_blocks:
-                        logger.warning(f"Iteration {i+1}: No valid diffs found in response")
-                        continue
-
-                    # Apply the diffs
-                    child_code = apply_diff(parent.code, llm_response)
-                    changes_summary = format_diff_summary(diff_blocks)
-                else:
-                    # Parse full rewrite
-                    new_code = parse_full_rewrite(llm_response, self.language)
-
-                    if not new_code:
-                        logger.warning(f"Iteration {i+1}: No valid code found in response")
-                        continue
-
-                    child_code = new_code
-                    changes_summary = "Full rewrite"
-
-                # Check code length
-                if len(child_code) > self.config.max_code_length:
-                    logger.warning(
-                        f"Iteration {i+1}: Generated code exceeds maximum length "
-                        f"({len(child_code)} > {self.config.max_code_length})"
+                try:
+                    llm_response = await self.llm_ensemble.generate_with_context(
+                        system_message=prompt["system"],
+                        messages=[{"role": "user", "content": prompt["user"]}],
                     )
+
+                    if self.config.diff_based_evolution:
+                        diff_blocks = extract_diffs(llm_response)
+
+                        if not diff_blocks:
+                            logger.warning(f"Iteration {i+1}: No valid diffs found in response")
+                            continue
+
+                        child_code = apply_diff(parent.code, llm_response)
+                        changes_summary = format_diff_summary(diff_blocks)
+                    else:
+                        new_code = parse_full_rewrite(llm_response, self.language)
+
+                        if not new_code:
+                            logger.warning(f"Iteration {i+1}: No valid code found in response")
+                            continue
+
+                        child_code = new_code
+                        changes_summary = "Full rewrite"
+
+                    if len(child_code) > self.config.max_code_length:
+                        logger.warning(
+                            f"Iteration {i+1}: Generated code exceeds maximum length "
+                            f"({len(child_code)} > {self.config.max_code_length})"
+                        )
+                        continue
+
+                    child_id = str(uuid.uuid4())
+                    child_metrics = await self.evaluator.evaluate_program(child_code, child_id)
+
+                    artifacts = self.evaluator.get_pending_artifacts(child_id)
+
+                    child_program = Program(
+                        id=child_id,
+                        code=child_code,
+                        language=self.language,
+                        parent_id=parent.id,
+                        generation=parent.generation + 1,
+                        metrics=child_metrics,
+                        metadata={
+                            "changes": changes_summary,
+                            "parent_metrics": parent.metrics,
+                        },
+                    )
+
+                    async with db_lock:
+                        self.database.add(child_program, iteration=i + 1, target_island=island_idx)
+
+                        if artifacts:
+                            self.database.store_artifacts(child_id, artifacts)
+
+                        self.database.increment_island_generation(island_idx)
+
+                        if self.database.should_migrate():
+                            logger.info(f"Performing migration at iteration {i+1}")
+                            self.database.migrate_programs()
+                            self.database.log_island_status()
+
+                        iteration_time = time.time() - iteration_start
+                        self._log_iteration(i, parent, child_program, iteration_time)
+
+                        if self.database.best_program_id == child_program.id:
+                            logger.info(
+                                f"🌟 New best solution found at iteration {i+1}: {child_program.id}"
+                            )
+                            logger.info(f"Metrics: {format_metrics_safe(child_program.metrics)}")
+
+                        if (i + 1) % self.config.checkpoint_interval == 0:
+                            self._save_checkpoint(i + 1)
+                            logger.info(f"Island status at checkpoint {i+1}:")
+                            self.database.log_island_status()
+
+                    if target_score is not None:
+                        avg_score = sum(child_metrics.values()) / max(1, len(child_metrics))
+                        if avg_score >= target_score:
+                            logger.info(
+                                f"Target score {target_score} reached after {i+1} iterations"
+                            )
+                            stop_event.set()
+                            break
+
+                except Exception as e:
+                    logger.error(f"Error in iteration {i+1}: {str(e)}")
                     continue
 
-                # Evaluate the child program
-                child_id = str(uuid.uuid4())
-                child_metrics = await self.evaluator.evaluate_program(child_code, child_id)
-
-                # Handle artifacts if they exist
-                artifacts = self.evaluator.get_pending_artifacts(child_id)
-
-                # Create a child program
-                child_program = Program(
-                    id=child_id,
-                    code=child_code,
-                    language=self.language,
-                    parent_id=parent.id,
-                    generation=parent.generation + 1,
-                    metrics=child_metrics,
-                    metadata={
-                        "changes": changes_summary,
-                        "parent_metrics": parent.metrics,
-                    },
-                )
-
-                # Add to database (will be added to current island)
-                self.database.add(child_program, iteration=i + 1)
-
-                # Store artifacts if they exist
-                if artifacts:
-                    self.database.store_artifacts(child_id, artifacts)
-
-                # Increment generation for current island
-                self.database.increment_island_generation()
-
-                # Check if migration should occur
-                if self.database.should_migrate():
-                    logger.info(f"Performing migration at iteration {i+1}")
-                    self.database.migrate_programs()
-                    self.database.log_island_status()
-
-                # Log progress
-                iteration_time = time.time() - iteration_start
-                self._log_iteration(i, parent, child_program, iteration_time)
-
-                # Specifically check if this is the new best program
-                if self.database.best_program_id == child_program.id:
-                    logger.info(
-                        f"🌟 New best solution found at iteration {i+1}: {child_program.id}"
-                    )
-                    logger.info(f"Metrics: {format_metrics_safe(child_program.metrics)}")
-
-                # Save checkpoint
-                if (i + 1) % self.config.checkpoint_interval == 0:
-                    self._save_checkpoint(i + 1)
-                    # Also log island status at checkpoints
-                    logger.info(f"Island status at checkpoint {i+1}:")
-                    self.database.log_island_status()
-
-                # Check if target score reached
-                if target_score is not None:
-                    avg_score = sum(child_metrics.values()) / max(1, len(child_metrics))
-                    if avg_score >= target_score:
-                        logger.info(f"Target score {target_score} reached after {i+1} iterations")
-                        break
-
-            except Exception as e:
-                logger.error(f"Error in iteration {i+1}: {str(e)}")
-                continue
+        # Launch workers for each island and wait for completion
+        tasks = [
+            asyncio.create_task(island_worker(idx))
+            for idx in range(self.config.database.num_islands)
+        ]
+        await asyncio.gather(*tasks)
 
         # Get the best program using our tracking mechanism
         best_program = None
