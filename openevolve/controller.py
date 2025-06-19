@@ -5,11 +5,9 @@ Main controller for OpenEvolve
 import asyncio
 import logging
 import os
-import re
 import time
 import uuid
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional
 
 from openevolve.config import Config, load_config
 from openevolve.database import Program, ProgramDatabase
@@ -21,7 +19,6 @@ from openevolve.utils.code_utils import (
     extract_code_language,
     extract_diffs,
     format_diff_summary,
-    parse_evolve_blocks,
     parse_full_rewrite,
 )
 from openevolve.utils.format_utils import (
