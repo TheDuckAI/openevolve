@@ -7,7 +7,7 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from openevolve.config import Config, load_config
 from openevolve.database import Program, ProgramDatabase
