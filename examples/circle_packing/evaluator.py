@@ -2,16 +2,15 @@
 Evaluator for circle packing example (n=26) with improved timeout handling
 """
 
-import importlib.util
-import numpy as np
-import time
 import os
-import signal
-import subprocess
-import tempfile
-import traceback
-import sys
 import pickle
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
+
+import numpy as np
 
 
 class TimeoutError(Exception):
@@ -34,6 +33,14 @@ def validate_packing(centers, radii):
     Returns:
         True if valid, False otherwise
     """
+    if not (np.all(np.isfinite(centers)) and np.all(np.isfinite(radii))):
+        print("Non-finite coordinate or radius detected")
+        return False
+
+    if np.any(radii <= 0) or np.any(radii > 0.5):
+        print("Invalid radius value detected")
+        return False
+
     n = centers.shape[0]
 
     # Check if circles are inside the unit square
@@ -49,7 +56,7 @@ def validate_packing(centers, radii):
         for j in range(i + 1, n):
             dist = np.sqrt(np.sum((centers[i] - centers[j]) ** 2))
             if dist < radii[i] + radii[j] - 1e-6:  # Allow for tiny numerical errors
-                print(f"Circles {i} and {j} overlap: dist={dist}, r1+r2={radii[i]+radii[j]}")
+                print(f"Circles {i} and {j} overlap: dist={dist}, r1+r2={radii[i] + radii[j]}")
                 return False
 
     return True
@@ -185,7 +192,8 @@ def evaluate(program_path):
 
         # Use subprocess to run with timeout
         centers, radii, reported_sum = run_with_timeout(
-            program_path, timeout_seconds=600  # Single timeout
+            program_path,
+            timeout_seconds=600,  # Single timeout
         )
 
         end_time = time.time()
