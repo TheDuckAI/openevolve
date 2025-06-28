@@ -1,0 +1,49 @@
+# Taken from configuration for circle packing constructor evolution (n=26)
+max_iterations: 100 # Increased iterations
+checkpoint_interval: 10
+log_level: "INFO"
+
+# LLM configuration
+llm:
+  primary_model: "google/gemini-2.0-flash-001"
+  # primary_model: "llama3.1-8b"
+  primary_model_weight: 0.8
+  secondary_model: "anthropic/claude-3.7-sonnet"
+  # secondary_model: "llama-4-scout-17b-16e-instruct"
+  secondary_model_weight: 0.2
+  api_base: "https://openrouter.ai/api/v1"
+  # api_base: "https://api.cerebras.ai/v1"
+  temperature: 0.7
+  top_p: 0.95
+  max_tokens: 8192
+  timeout: 600
+
+# Prompt configuration
+prompt:
+  system_message: |
+    You are an expert mathematician specializing in sphere packing problems and computational geometry. Your task is to improve a constructor function that directly produces a specific arrangement of 26 spheres in a unit cube, maximizing the sum of their radii.
+
+    Focus on designing an explicit constructor that places each circle in a specific position, rather than an iterative search algorithm.
+  num_top_programs: 4
+  use_template_stochasticity: true
+
+# Database configuration
+database:
+  population_size: 70 # Increased population for more diversity
+  archive_size: 30
+  num_islands: 5
+  elite_selection_ratio: 0.3
+  exploitation_ratio: 0.6
+
+# Evaluator configuration
+evaluator:
+  timeout: 90
+  cascade_evaluation: true
+  cascade_thresholds: [0.5, 0.8]
+  parallel_evaluations: 4
+  use_llm_feedback: false
+
+# Evolution settings
+diff_based_evolution: false # Use full rewrites instead of diffs
+allow_full_rewrites: true # Allow full rewrites for constructor functions
+max_code_length: 100000

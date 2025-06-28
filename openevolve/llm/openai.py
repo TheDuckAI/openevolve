@@ -4,12 +4,10 @@ OpenAI API interface for LLMs
 
 import asyncio
 import logging
-import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import openai
 
-from openevolve.config import LLMConfig
 from openevolve.llm.base import LLMInterface
 
 logger = logging.getLogger(__name__)
@@ -32,7 +30,7 @@ class OpenAILLM(LLMInterface):
         self.retry_delay = model_cfg.retry_delay
         self.api_base = model_cfg.api_base
         self.api_key = model_cfg.api_key
-        self.random_seed = getattr(model_cfg, 'random_seed', None)
+        self.random_seed = getattr(model_cfg, "random_seed", None)
 
         # Set up API client
         self.client = openai.OpenAI(
@@ -73,8 +71,9 @@ class OpenAILLM(LLMInterface):
                 "temperature": kwargs.get("temperature", self.temperature),
                 "top_p": kwargs.get("top_p", self.top_p),
                 "max_tokens": kwargs.get("max_tokens", self.max_tokens),
+                "extra_body": {"reasoning": {"max_tokens": 0}},
             }
-        
+
         # Add seed parameter for reproducibility if configured
         # Skip seed parameter for Google AI Studio endpoint as it doesn't support it
         seed = kwargs.get("seed", self.random_seed)

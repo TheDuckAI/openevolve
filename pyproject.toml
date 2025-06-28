@@ -18,6 +18,8 @@ dependencies = [
     "flask",
     "matplotlib>=3.9.4",
     "scikit-learn>=1.6.1",
+    "optuna>=4.4.0",
+    "optuna-dashboard>=0.18.0",
 ]
 
 [project.optional-dependencies]
