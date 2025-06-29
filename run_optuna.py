@@ -130,11 +130,11 @@ def objective(trial: optuna.Trial, args: argparse.Namespace):
     config.database.archive_size = trial.suggest_int("archive_size", low=10, high=60, step=5)
     config.database.num_islands = trial.suggest_int("num_islands", low=3, high=10)
 
-    config.database.elite_selection_ratio = trial.suggest_float(
-        "elite_selection_ratio", low=0.1, high=0.5
-    )
-    config.database.exploration_ratio = trial.suggest_float("exploration_ratio", low=0.1, high=0.9)
-    config.database.exploitation_ratio = 1 - config.database.exploration_ratio
+    # config.database.elite_selection_ratio = trial.suggest_float(
+    #     "elite_selection_ratio", low=0.1, high=0.5
+    # )
+    # config.database.exploration_ratio = trial.suggest_float("exploration_ratio", low=0.1, high=0.9)
+    # config.database.exploitation_ratio = 1 - config.database.exploration_ratio
 
     # feature_dimensions = ["complexity", "diversity", "score"]
     # all_subsets = []

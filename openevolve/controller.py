@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Dict, Optional
 
 from optuna import Trial, TrialPruned
+from tqdm import tqdm
 
 from openevolve.config import Config, load_config
 from openevolve.database import Program, ProgramDatabase
@@ -262,7 +263,7 @@ class OpenEvolve:
         logger.info(f"Using island-based evolution with {self.config.database.num_islands} islands")
         self.database.log_island_status()
 
-        for i in range(start_iteration, total_iterations):
+        for i in tqdm(range(start_iteration, total_iterations), desc="Iteration progress"):
             iteration_start = time.time()
 
             # Manage island evolution - switch islands periodically

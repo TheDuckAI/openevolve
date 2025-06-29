@@ -1,3 +1,9 @@
+# Optuna Setup (temporary)
+
+The example launch script is [run.sh](./run.sh). You can see all the CLI options by doing --help option.
+
+You can modify which parameters are being optimized and how they are optimized (low, high, step, etc.) by modifying [run_optuna.py](./run_optuna.py). Parameter options are in the `objective` function and the way default parameters are loaded are in the `load_params_from_config` function.
+
 # OpenEvolve
 
 An open-source implementation of the AlphaEvolve system described in the Google DeepMind paper "AlphaEvolve: A coding agent for scientific and algorithmic discovery" (2025).

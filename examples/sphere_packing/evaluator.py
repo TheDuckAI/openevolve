@@ -191,7 +191,7 @@ def evaluate(program_path):
         valid = validate_packing(centers, radii)
 
         # Shape validation for the packing
-        shape_valid = centers.shape == (26, 3) and radii.shape == (26,)
+        shape_valid = centers.shape == (37, 3) and radii.shape == (37,)
         if not shape_valid:
             print(f"Invalid shapes: centers={centers.shape}, radii={radii.shape}")
             valid = False

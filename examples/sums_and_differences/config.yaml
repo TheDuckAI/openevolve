@@ -1,0 +1,59 @@
+# Taken from configuration for circle packing constructor evolution (n=26)
+max_iterations: 250 # Increased iterations
+checkpoint_interval: 10
+log_level: "INFO"
+
+# LLM configuration
+llm:
+  primary_model: "google/gemini-2.0-flash-001"
+  # primary_model: "llama3.1-8b"
+  primary_model_weight: 0.75
+  secondary_model: "anthropic/claude-3.7-sonnet"
+  # secondary_model: "llama-4-scout-17b-16e-instruct"
+  secondary_model_weight: 0.25
+  api_base: "https://openrouter.ai/api/v1"
+  # api_base: "https://api.cerebras.ai/v1"
+  temperature: 0.85
+  top_p: 0.9
+  max_tokens: 8192
+  timeout: 600
+
+# Prompt configuration
+prompt:
+  system_message: |
+    Let $C_6$ be the largest constant for which the following statement holds: there exist arbitrarily large finite sets of integers $A,B$ with $|A+B| \ll |A|$ and $|A-B| \gg |A+B|^{C_6}$.
+    (Here $A+B = \{a+b : a \in A, b \in B\}$ and $A-B = \{a-b : a \in A, b \in B\}$ denote the sumset and difference set, respectively. The notation $X \ll Y$ means that $X \le C Y$ for some constant $C$ independent of the sets $A,B$ (for sufficiently large sets $A,B$). The notation $X \gg Y$ means that $X \ge C' Y$ for some positive constant $C'$ independent of the sets $A,B$ (for sufficiently large sets $A,B$).)
+
+    It is known that
+    $$ 1.14465 \leq C_6 \leq \frac{4}{3}, $$
+    where the upper and lower bounds can be respectively found in Corollary 3 and
+    Theorem 1 of
+    [Gyarmati et al. (2007)](https://projecteuclid.org/journals/functiones-et-approximatio-commentarii-mathematici/volume-37/issue-1/Sums-and-differences-of-finite-sets/10.7169/facm/1229618749.full).
+    To build the lower bound, Gyarmati et al. use the inequality
+    $$C_6 \geq 1 + \frac{\log \frac{|U-U|}{|U+U|}}{\log (2 \max (U) + 1)}, $$
+    which holds for any finite set $U$ of non-negative integers containing zero satisfying $|U-U| \leq 2 \max (U) + 1$.
+
+    You are a mathematical expert specializing in this problem. Your task is to improve a constructor function that directly produces $U$ which maximizes this lower bound. You are allowed to use any technique you want, such as a search algorithm, returning a direct set, etc.
+  num_top_programs: 6
+  use_template_stochasticity: true
+
+# Database configuration
+database:
+  population_size: 160 # Increased population for more diversity
+  archive_size: 40
+  num_islands: 10
+  elite_selection_ratio: 0.3
+  exploitation_ratio: 0.6
+
+# Evaluator configuration
+evaluator:
+  timeout: 90
+  cascade_evaluation: true
+  cascade_thresholds: [0.55, 0.8]
+  parallel_evaluations: 4
+  use_llm_feedback: false
+
+# Evolution settings
+diff_based_evolution: false # Use full rewrites instead of diffs
+allow_full_rewrites: true # Allow full rewrites for constructor functions
+max_code_length: 100000

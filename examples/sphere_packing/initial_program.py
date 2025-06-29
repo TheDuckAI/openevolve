@@ -1,5 +1,5 @@
 # EVOLVE-BLOCK-START
-"""Constructor-based circle packing for n=26 circles"""
+"""Constructor-based circle packing for n=37 circles"""
 
 import numpy as np
 
@@ -37,7 +37,7 @@ def compute_max_radii(centers):
     return radii
 
 
-def construct_packing(n=26):
+def construct_packing(n=37):
     """
     Construct a specific arrangement of `n` unequal spheres in a 1x1x1 unit cube
     that attempts to maximize the sum of their radii.
@@ -66,7 +66,7 @@ def construct_packing(n=26):
 # EVOLVE-BLOCK-END
 
 
-def run_packing(n=26):
+def run_packing(n=37):
     """
     Run the sphere packing constructor for `n` unequal spheres in a unit cube.
     """
