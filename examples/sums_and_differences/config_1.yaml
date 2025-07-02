@@ -1,0 +1,103 @@
+# Taken from configuration for circle packing constructor evolution (n=26)
+max_iterations: 100 # Increased iterations
+checkpoint_interval: 10
+log_level: "INFO"
+# o3, claude 4, gemini 2.5 flash/pro, deepseek, o3-deep-research, gpt 4.1, flash 2.5 lite
+# LLM configuration
+llm:
+  primary_model: "google/gemini-2.0-flash-001"
+  # primary_model: "llama3.1-8b"
+  # primary_model_weight: 0.8
+  # secondary_model: "anthropic/claude-sonnet-4"
+  # secondary_model: "llama-4-scout-17b-16e-instruct"
+  # secondary_model_weight: 0.2
+  api_base: "https://openrouter.ai/api/v1"
+  # api_base: "https://api.cerebras.ai/v1"
+  temperature: 0.7
+  top_p: 0.95
+  max_tokens: 8192
+  timeout: 600
+
+# Prompt configuration
+prompt:
+  system_message: |
+    ### Problem (recap)
+    Let \(C_6\) be the largest constant such that there exist arbitrarily large finite sets
+    \(A,B\subset\Bbb Z\) with
+        \(|A+B|\ll |A|\)  and  
+        \(|A-B| \gg |A+B|^{\,C_6}\).
+
+    For any finite set \(U\subset\Bbb Z_{\ge0}\) containing \(0\) and satisfying
+        \(|U-U|\le 2\max(U)+1\),
+    the Gyarmati–Matolcsi–Ruzsa inequality gives the lower bound  
+    \[
+        C_6 \;\ge\; 1+\frac{\log\bigl(|U-U|/|U+U|\bigr)}
+                          {\log\bigl(2\max(U)+1\bigr)}.
+    \]
+
+    Known bounds (July 2025):  
+    – Baseline (Gyarmati et al. 2007) 1.144 65  
+    – AlphaEvolve best so far     1.158 4
+
+    ### Your Goal
+    **Rewrite only the code inside `EVOLVE-BLOCK` to output a set `U`
+    that maximises the bound while obeying the constraint.**  
+    The evaluator rewards the *actual* bound it recomputes; reported numbers
+    are ignored if they don’t match.
+
+    ### Hard constraints (must never be violated)
+    1. `U` is a Python `list[int]`, contains 0, all elements ≥ 0, no dups.  
+    2. \(|U-U| \le 2\max(U)+1\) — otherwise the bound is forced to 0.  
+    3. Runtime < 60 s and memory < 2 GB on a single call to `construct_set()`.  
+    4. Use only the Python stdlib + NumPy (already imported).  
+    5. Keep code fully deterministic (set RNG seeds if randomised search is used).
+
+    ### Scoring facts
+    * **Evaluator formula:**  `combined_score = validity * lower_bound`.  
+      So validity ∈ {0,1}.  One violation ⇒ score 0.  
+    * Taste of the landscape (heuristic):  
+      – You want `|U-U|` *as close as possible* to the legal ceiling  
+        \(2\max(U)+1\).  
+      – You want `|U+U|` as *small* as possible.  
+      – Wide gaps inside `U` help shrink `|U+U|`; sprinkling extra elements
+        widens `|U-U|`.
+
+    ### Implementation tips that tend to score well
+    * **Greedy / local search**: start from a sparse scaffold (e.g. powers of 2 or a
+      near-geometric progression) and iteratively add/remove/perturb elements
+      while the ratio \(|U-U|/|U+U|\) improves and the constraint holds.
+    * Fast evaluation:  
+      – Maintain boolean arrays or bitsets for difference/sum sets  
+        instead of recomputing from scratch at every step.  
+      – Keep `len(U)` small (≤ 1 000) to stay well under the 60 s limit.
+    * Consider “compound” numbers of the form \(2^i+2^j\) or \(\lfloor\phi^k\rfloor\)
+      — they often enlarge the difference set without exploding the sum set.
+    * Stop early and return if you hit a bound ≥ 1.16 — that’s currently SOTA.
+
+    ### Output
+    Return **`u, bound`**, where `bound` equals the value returned by
+    `compute_lower_bound_internal(u)`.
+
+    *Modify nothing outside the EVOLVE-BLOCK.*
+  num_top_programs: 3
+  use_template_stochasticity: true
+
+# Database configuration
+database:
+  population_size: 60 # Increased population for more diversity
+  archive_size: 25
+  num_islands: 4
+  elite_selection_ratio: 0.3
+  exploitation_ratio: 0.7
+
+# Evaluator configuration
+evaluator:
+  timeout: 60
+  cascade_evaluation: true
+  cascade_thresholds: [0.5, 0.75]
+  parallel_evaluations: 4
+  use_llm_feedback: false
+
+# Evolution settings
+diff_based_evolution: false # Use full rewrites instead of diffs
+allow_full_rewrites: true # Allow full rewrites for constructor functions
