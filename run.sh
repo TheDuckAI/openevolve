@@ -1,6 +1,6 @@
-OPENAI_API_KEY=$OPENROUTER_API_KEY uv run run_optuna.py studies/sums_and_differences/trial17/checkpoints/checkpoint_30/best_program.py \
-    examples/sums_and_differences/evaluator.py \
-    --config examples/sums_and_differences/config_2.yaml \
-    --output studies/sums_and_differences \
+OPENAI_API_KEY=$OPENROUTER_API_KEY uv run run_optuna.py examples/first_autocorrelation/initial_program.py \
+    examples/first_autocorrelation/evaluator.py \
+    --config examples/first_autocorrelation/config_1.yaml \
+    --output studies/first_autocorrelation \
     --n_trials 10 \
     --n_jobs 10

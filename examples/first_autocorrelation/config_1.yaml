@@ -1,0 +1,78 @@
+# Taken from configuration for circle packing constructor evolution (n=26)
+max_iterations: 100 # Increased iterations
+checkpoint_interval: 10
+log_level: "INFO"
+# o3, claude 4, gemini 2.5 flash/pro, deepseek, o3-deep-research, gpt 4.1, flash 2.5 lite
+# LLM configuration
+llm:
+  primary_model: "google/gemini-2.0-flash-001"
+  # primary_model: "llama3.1-8b"
+  # primary_model_weight: 0.8
+  # secondary_model: "anthropic/claude-sonnet-4"
+  # secondary_model: "llama-4-scout-17b-16e-instruct"
+  # secondary_model_weight: 0.2
+  api_base: "https://openrouter.ai/api/v1"
+  # api_base: "https://api.cerebras.ai/v1"
+  temperature: 0.7
+  top_p: 0.95
+  max_tokens: 8192
+  timeout: 600
+
+# Prompt configuration
+prompt:
+  system_message: |
+    You are an expert numerical-optimization engineer.
+    Your task improve the code so that it produces a *tighter upper bound* on the autocorrelation constant **C₁** when it is evaluated by the evaluator (provided after the program).
+    The evaluator calls `get_step_function_heights()` from your file, computes the bound
+
+    $$
+    C_1 \;=\; \frac{2N\,\max_x (f\!*\!f)(x)}{\bigl(\sum_x f(x)\bigr)^2},
+    $$
+
+    and scores **-C₁** (higher score = better).
+
+    ### Hard requirements - the evaluator will reject your code if any are violated
+
+    1. **Public API must stay identical**
+
+      * Keep the function `get_step_function_heights()` (you may refactor or delete internals, but the public names must resolve).
+      * `get_step_function_heights()` must return **a 1-D `list[float]` of length `BINS`** with all finite, non-negative heights.
+
+    2. **No extra imports beyond the Python ≥3.12.10 std-lib, NumPy, and Scikit-learn.**
+
+    3. **Wall-clock budget:** your code (including any search it performs) must finish well within the 600 s limit enforced by `evaluator.py`.
+
+    ### Suggestions for improvement
+
+    * Replace the naive hill-climb with stronger meta-heuristics (e.g. simulated annealing with temperature schedule, parallel tempering, CMA-ES, Nelder-Mead, ADAM-like coordinate descent, etc.).
+    * Exploit convolution structure for fast evaluation (`np.fft.irfft` to get the full autocorrelation in *O(N log N)* instead of *O(N²)*).
+    * Try multiple restarts, adaptive step sizes, or gradient-like estimates (finite differences on neighbouring bins).
+    * Pre-initialise with heuristically better shapes (e.g. triangular, cosine, piecewise-linear, low-frequency sinusoids) instead of a flat profile.
+    * Vectorise aggressively; avoid per-iteration Python loops except for the outermost optimisation loop.
+
+    ### Scoring reminder
+
+    The evaluator that runs your program returns a dict whose `"combined_score"` is `-C₁`.
+    Your goal: **maximise that number**.
+  num_top_programs: 3
+  use_template_stochasticity: true
+
+# Database configuration
+database:
+  population_size: 60 # Increased population for more diversity
+  archive_size: 25
+  num_islands: 4
+  elite_selection_ratio: 0.3
+  exploitation_ratio: 0.7
+
+# Evaluator configuration
+evaluator:
+  timeout: 60
+  cascade_evaluation: true
+  cascade_thresholds: [0.5, 0.75]
+  parallel_evaluations: 4
+  use_llm_feedback: false
+
+# Evolution settings
+diff_based_evolution: false # Use full rewrites instead of diffs
+allow_full_rewrites: true # Allow full rewrites for constructor functions
