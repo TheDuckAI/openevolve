@@ -6,21 +6,21 @@ build-backend = "setuptools.build_meta"
 name = "algotune"
 version = "0.1.0"
 description = "A benchmark for testing programming abilities of language models"
-requires-python = ">=3.10"
+requires-python = "<3.10,>=3.9"
 dependencies = [
     "numpy",
     "pandas",
     "cython",
     "numba",
     "dask",
-    "pulp", 
-    "scipy", 
-    "ortools", 
-    "pyomo", 
-    "highspy", 
-    "networkx", 
-    "python-sat", 
-    "jax", 
+    "pulp",
+    "scipy",
+    "ortools",
+    "pyomo",
+    "highspy",
+    "networkx",
+    "python-sat",
+    "jax",
     "diffrax",
     "sympy",
     "faiss-cpu",
@@ -41,13 +41,13 @@ dependencies = [
     "pillow",
     "pythran",
     "dace",
-    "psutil"
+    "psutil",
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]  # Look for packages in the current directory
+where = ["."] # Look for packages in the current directory
 exclude = [ # Exclude directories that are not packages
-    "tests*", 
+    "tests*",
     "singularity*",
     "keys*",
     "logs*",
@@ -57,18 +57,11 @@ exclude = [ # Exclude directories that are not packages
 include = ["*"] # Include all found packages unless excluded 
 
 [project.optional-dependencies]
-dev = [
-  "pre-commit",
-  "ruff>=0.3.0"
-]
+dev = ["pre-commit", "ruff>=0.3.0"]
 
 [tool.ruff]
 # Exclude the test scripts directory from ruff checks
-exclude = [
-  ".git",
-  ".github/scripts/",
-  "__pycache__"
-]
+exclude = [".git", ".github/scripts/", "__pycache__"]
 # Default ruff settings
 line-length = 100
 target-version = "py310"
